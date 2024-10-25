@@ -1,0 +1,31 @@
+[project]
+name = "copy-to-clipboard"
+version = "0.1.0"
+description = "A tool to copy project files to clipboard."
+readme = "README.md"
+requires-python = ">=3.12"
+license = { text = "MIT" }
+authors = [
+  { name = "Steven Kauwe", email = "108346431+StevenKauwe@users.noreply.github.com" },
+]
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: OS Independent",
+]
+dependencies = [
+    "colorama>=0.4.6",
+    "pathspec>=0.12.1",
+    "pyperclip>=1.9.0",
+    "tiktoken>=0.8.0",
+]
+
+[project.scripts]
+ctc = "copy_to_clipboard:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project.urls]
+Homepage = "https://github.com/skauwe/copy-to-clipboard"
