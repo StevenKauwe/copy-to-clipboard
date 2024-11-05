@@ -14,14 +14,18 @@ classifiers = [
   "Operating System :: OS Independent",
 ]
 dependencies = [
-    "colorama>=0.4.6",
-    "pathspec>=0.12.1",
-    "pyperclip>=1.9.0",
-    "tiktoken>=0.8.0",
+  "colorama>=0.4.6",
+  "loguru>=0.7.2",
+  "pathspec>=0.12.1",
+  "pydantic>=2.9.2",
+  "pyperclip>=1.9.0",
+  "ruff>=0.7.2",
+  "tiktoken>=0.8.0",
 ]
 
 [project.scripts]
 ctc = "copy_to_clipboard:main"
+update-code = "copy_to_clipboard:update_code"
 
 [build-system]
 requires = ["hatchling"]

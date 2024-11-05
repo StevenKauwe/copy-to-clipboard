@@ -1,4 +1,7 @@
+# src/copy_to_clipboard/copier.py
+
 import os
+import re
 import pyperclip
 import sys
 import tiktoken
@@ -6,6 +9,7 @@ import fnmatch
 from pathlib import Path
 from .config import load_config
 import pathspec
+import shutil
 
 
 def get_token_count(text, encoding):
@@ -147,8 +151,17 @@ def collect_file_contents(
                 print(f"\nFailed to read '{rel_file_posix}': {e}", file=sys.stderr)
                 continue
 
-            # Prepare file content
-            file_content = f"```{rel_file_posix}\n{content}\n```\n\n"
+            # **Start of Modification**
+            # Check if the first line already contains the file path as a comment
+            first_line = content.splitlines()[0] if content else ""
+            expected_comment = f"# {rel_file_posix}"
+            if first_line.strip() != expected_comment:
+                # Prepend the file path as a Python comment
+                content = f"{expected_comment}\n\n{content}"
+            # **End of Modification**
+
+            # Prepare file content with specified language for syntax highlighting
+            file_content = f"```python\n{content}\n```\n\n"
             file_length = len(file_content)
             file_tokens = get_token_count(file_content, encoding)
 
@@ -233,8 +246,17 @@ def collect_file_contents(
             print(f"\nFailed to read '{rel_file_posix}': {e}", file=sys.stderr)
             continue
 
-        # Prepare file content
-        file_content = f"```{rel_file_posix}\n{content}\n```\n\n"
+        # **Start of Modification**
+        # Check if the first line already contains the file path as a comment
+        first_line = content.splitlines()[0] if content else ""
+        expected_comment = f"# {rel_file_posix}"
+        if first_line.strip() != expected_comment:
+            # Prepend the file path as a Python comment
+            content = f"{expected_comment}\n\n{content}"
+        # **End of Modification**
+
+        # Prepare file content with specified language for syntax highlighting
+        file_content = f"```python\n{content}\n```\n\n"
         file_length = len(file_content)
         file_tokens = get_token_count(file_content, encoding)
 
@@ -381,4 +403,90 @@ def perform_copy(args):
             print(f"Estimated tokens remaining for LLM: {remaining}")
 
     print("=" * 50 + "\n")
+
+
+def extract_file_data(data):
+    """
+    Extracts file paths and their content from the input string.
+
+    Expected format in the data:
+    ```python
+    # path/to/file.py
+    <file content>
+    ```
+    ```python
+    # path/to/next_file.py
+    <file content>
+    ```
+
+    :param data: The input string with embedded file data.
+    :return: A list of tuples containing file paths and their respective new content.
+    """
+    # Regular expression to match file path and content within triple backticks
+    pattern = r"```[^`\n]*\n#\s*(.*?)\n([\s\S]*?)```"
+    matches = re.findall(pattern, data)
+    return matches
+
+
+def replace_file_contents(extracted_data, dry_run=False, backup=False):
+    """
+    Replace the contents of each file with the new content extracted from the input data.
+
+    :param extracted_data: A list of tuples containing file paths and new content.
+    :param dry_run: If True, do not actually write to the files; just print the actions.
+    :param backup: If True, create backups of files before updating.
+    """
+    for file_path, new_content in extracted_data:
+        # Depict the file path as relative to the current directory
+        relative_file_path = os.path.normpath(file_path.strip())
+
+        # Ensure directory structure exists
+        if "/" in relative_file_path or "\\" in relative_file_path:
+            os.makedirs(os.path.dirname(relative_file_path), exist_ok=True)
+
+        # If backup is requested, create a backup before modifying
+        if backup:
+            backup_path = relative_file_path + ".backup"
+            if os.path.exists(relative_file_path):
+                shutil.copy2(relative_file_path, backup_path)
+                print(f"Backup created for: {relative_file_path} at {backup_path}")
+
+        if dry_run:
+            print(f"[Dry Run] Would replace content in: {relative_file_path}")
+            continue
+
+        # Write the new content to the file
+        try:
+            with open(relative_file_path, "w", encoding="utf-8") as f:
+                f.write(new_content.strip())
+            print(f"Replaced content in: {relative_file_path}")
+        except Exception as e:
+            print(f"Error writing to {relative_file_path}: {e}", file=sys.stderr)
+
+
+def update_from_clipboard(dry_run=False, backup=False):
+    """
+    Reads structured file data from the clipboard and updates the corresponding files.
+
+    :param dry_run: If True, do not actually write to the files; just print the actions.
+    :param backup: If True, create backups of files before updating them.
+    """
+    clipboard_data = pyperclip.paste()
+    if not clipboard_data:
+        print(
+            "Clipboard is empty. Please copy the structured file data to proceed.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    extracted_data = extract_file_data(clipboard_data)
+    if not extracted_data:
+        print(
+            "No valid file data found in the clipboard. Ensure the data is correctly formatted.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    print(f"Found {len(extracted_data)} file(s) to update.")
+    replace_file_contents(extracted_data, dry_run=dry_run, backup=backup)
 

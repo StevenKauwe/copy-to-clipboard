@@ -1,3 +1,5 @@
+# src/copy_to_clipboard/config.py
+
 import json
 import sys
 from pathlib import Path

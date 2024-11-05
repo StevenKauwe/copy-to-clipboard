@@ -1,7 +1,9 @@
+# src/copy_to_clipboard/cli.py
+
 import argparse
 import sys
 from .config import add_patterns, remove_patterns, list_patterns, clear_all_patterns
-from .copier import perform_copy
+from .copier import perform_copy, update_from_clipboard
 
 
 def main():
@@ -88,6 +90,22 @@ Examples of common glob patterns:
         "clear-all", help="Remove all added glob patterns and explicit files."
     )
 
+    # Sub-command: update-files
+    parser_update = subparsers.add_parser(
+        "update-files",
+        help="Update file contents based on structured data from the clipboard.",
+    )
+    parser_update.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Show what changes would be made without modifying any files.",
+    )
+    parser_update.add_argument(
+        "--backup",
+        action="store_true",
+        help="Create backups of files before updating them.",
+    )
+
     args = parser.parse_args()
 
     if args.command == "add":
@@ -100,7 +118,12 @@ Examples of common glob patterns:
         perform_copy(args)
     elif args.command == "clear-all":
         clear_all_patterns()
+    elif args.command == "update-files":
+        update_from_clipboard(dry_run=args.dry_run, backup=args.backup)
     else:
         parser.print_help()
         sys.exit(1)
 
+
+if __name__ == "__main__":
+    main()
