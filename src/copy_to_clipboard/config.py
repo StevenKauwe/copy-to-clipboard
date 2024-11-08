@@ -1,5 +1,3 @@
-# src/copy_to_clipboard/config.py
-
 import json
 import sys
 from pathlib import Path
@@ -161,4 +159,3 @@ def clear_all_patterns():
         print("\nAll include patterns and explicit files have been cleared.")
     else:
         print("\nNo include patterns or explicit files to clear.")
-

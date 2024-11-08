@@ -63,13 +63,15 @@ def collect_file_contents(
     max_chars=None,
     max_tokens=None,
     encoding=None,
+    instructions=None,
 ):
     """
     Collects contents of files based on include patterns and explicit files.
     Traverses the directory tree using os.walk and skips ignored directories.
+    Includes instructions at the beginning of the output.
     """
     spec = load_gitignore()
-    output = "<code-sample>\n"
+    output = f"{instructions}\n\n<code-sample>\n" if instructions else "<code-sample>\n"
     total_chars_copied = 0
     total_tokens_copied = 0
     total_files_added = 0
@@ -160,8 +162,19 @@ def collect_file_contents(
                 content = f"{expected_comment}\n\n{content}"
             # **End of Modification**
 
+            # Determine the language for code blocks based on file extension
+            extension = Path(filename).suffix.lower()
+            language = "python"  # Default language
+            if extension == ".js":
+                language = "javascript"
+            elif extension == ".md":
+                language = "markdown"
+            elif extension in [".txt", ".json", ".yaml", ".yml", ".html", ".css"]:
+                language = extension.lstrip(".")
+            # Add more mappings as needed
+
             # Prepare file content with specified language for syntax highlighting
-            file_content = f"```python\n{content}\n```\n\n"
+            file_content = f"```{language}\n{content}\n```\n\n"
             file_length = len(file_content)
             file_tokens = get_token_count(file_content, encoding)
 
@@ -255,8 +268,20 @@ def collect_file_contents(
             content = f"{expected_comment}\n\n{content}"
         # **End of Modification**
 
+        # Determine the language for code blocks based on file extension
+        filename = Path(file_path).name
+        extension = Path(filename).suffix.lower()
+        language = "python"  # Default language
+        if extension == ".js":
+            language = "javascript"
+        elif extension == ".md":
+            language = "markdown"
+        elif extension in [".txt", ".json", ".yaml", ".yml", ".html", ".css"]:
+            language = extension.lstrip(".")
+        # Add more mappings as needed
+
         # Prepare file content with specified language for syntax highlighting
-        file_content = f"```python\n{content}\n```\n\n"
+        file_content = f"```{language}\n{content}\n```\n\n"
         file_length = len(file_content)
         file_tokens = get_token_count(file_content, encoding)
 
@@ -377,6 +402,7 @@ def perform_copy(args):
         max_chars=args.max_chars,
         max_tokens=args.max_tokens,
         encoding=encoding,
+        instructions=args.instructions,
     )
 
     if summary["files_added"] == 0:
@@ -414,10 +440,11 @@ def extract_file_data(data):
     # path/to/file.py
     <file content>
     ```
-    ```python
-    # path/to/next_file.py
+    ```javascript
+    # path/to/file.js
     <file content>
     ```
+    etc.
 
     :param data: The input string with embedded file data.
     :return: A list of tuples containing file paths and their respective new content.
@@ -434,7 +461,7 @@ def replace_file_contents(extracted_data, dry_run=False, backup=False):
 
     :param extracted_data: A list of tuples containing file paths and new content.
     :param dry_run: If True, do not actually write to the files; just print the actions.
-    :param backup: If True, create backups of files before updating.
+    :param backup: If True, create backups of files before updating them.
     """
     for file_path, new_content in extracted_data:
         # Depict the file path as relative to the current directory
@@ -464,11 +491,11 @@ def replace_file_contents(extracted_data, dry_run=False, backup=False):
             print(f"Error writing to {relative_file_path}: {e}", file=sys.stderr)
 
 
-def update_from_clipboard(dry_run=False, backup=False):
+def update_from_clipboard(yes=False, backup=False):
     """
     Reads structured file data from the clipboard and updates the corresponding files.
 
-    :param dry_run: If True, do not actually write to the files; just print the actions.
+    :param yes: If True, proceed with updating files without prompting for confirmation.
     :param backup: If True, create backups of files before updating them.
     """
     clipboard_data = pyperclip.paste()
@@ -488,5 +515,33 @@ def update_from_clipboard(dry_run=False, backup=False):
         sys.exit(1)
 
     print(f"Found {len(extracted_data)} file(s) to update.")
-    replace_file_contents(extracted_data, dry_run=dry_run, backup=backup)
 
+    # Determine if this is a dry run (default) or actual update
+    dry_run = True
+    proceed = False
+
+    if yes:
+        proceed = True
+        dry_run = False
+    else:
+        # Prompt the user for confirmation
+        response = (
+            input(
+                "This will update the files as per the clipboard data. Do you want to proceed? [Y/n]: "
+            )
+            .strip()
+            .lower()
+        )
+        if response in ["y", "yes", ""]:
+            proceed = True
+            dry_run = False
+        else:
+            print("Update aborted by the user.")
+            sys.exit(0)
+
+    if proceed:
+        replace_file_contents(extracted_data, dry_run=dry_run, backup=backup)
+        if not dry_run:
+            print("\nFiles have been updated successfully.")
+        else:
+            print("\nDry run completed. No files were modified.")

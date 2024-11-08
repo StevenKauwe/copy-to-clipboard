@@ -1,6 +1,6 @@
 [project]
 name = "copy-to-clipboard"
-version = "0.1.0"
+version = "0.2.0"
 description = "A tool to copy project files to clipboard."
 readme = "README.md"
 requires-python = ">=3.12"
@@ -25,7 +25,6 @@ dependencies = [
 
 [project.scripts]
 ctc = "copy_to_clipboard:main"
-update-code = "copy_to_clipboard:update_code"
 
 [build-system]
 requires = ["hatchling"]
